@@ -1,4 +1,5 @@
-from fastapi import FastAPI
+import uuid
+from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -36,3 +37,14 @@ class AnalysisInput(BaseModel):
 @app.get('/')
 def root():
     return {'message': 'Connected'}
+
+
+@app.post('/analysis-sessions')
+def create_analysis_session(inputs: AnalysisInput):
+    session_id = str(uuid.uuid4())
+    db['analysis_inputs'][session_id] = inputs.model_dump()
+
+    return {
+        'message': 'Data stored successfully',
+        'session_id': session_id
+    }
