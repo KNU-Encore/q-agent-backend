@@ -1,5 +1,5 @@
 import uuid
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, BackgroundTasks, HTTPException
 from pydantic import BaseModel
 
 app = FastAPI()
@@ -46,5 +46,41 @@ def create_analysis_session(inputs: AnalysisInput):
 
     return {
         'message': 'Data stored successfully',
+        'session_id': session_id
+    }
+
+
+@app.post('/reports/{session_id}', status_code=202)
+def generate_report(session_id: str, background_tasks: BackgroundTasks):
+    if session_id not in db['analysis_inputs']:
+        raise HTTPException(status_code=404, detail='Session id not found')
+
+    if session_id in db['reports']:
+        status = db['reports'][session_id]['status']
+        if status == 'processing':
+            return {
+                'message': 'Report processing',
+                'session_id': session_id,
+                'status': status
+            }
+        elif status == 'complete':
+            return {
+                'message': 'Report completed',
+                'session_id': session_id,
+                'status': status
+            }
+
+    db['reports'][session_id] = {
+        'status': 'processing',
+        'result': None
+    }
+
+    input_data = db['analysis_inputs'][session_id]
+
+    # AI 리포트 생성 코드 호출
+    # result = background_tasks.add_task(run_ai_report_geenration, session_id, input_data)
+
+    return {
+        'message': 'AI report generation has started. Please check the results shortly',
         'session_id': session_id
     }
