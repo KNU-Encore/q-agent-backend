@@ -84,3 +84,12 @@ def generate_report(session_id: str, background_tasks: BackgroundTasks):
         'message': 'AI report generation has started. Please check the results shortly',
         'session_id': session_id
     }
+
+
+@app.get('/reports/{session_id}')
+def get_report(session_id: str):
+    report = db['reports'].get(session_id)
+    if not report:
+        raise HTTPException(status_code=404, detail='Please start the generation first')
+
+    return report
