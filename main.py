@@ -82,7 +82,8 @@ def generate_report(session_id: str, background_tasks: BackgroundTasks):
 
     return {
         'message': 'AI report generation has started. Please check the results shortly',
-        'session_id': session_id
+        'session_id': session_id,
+        'status': db['reports'][session_id]['status']
     }
 
 
