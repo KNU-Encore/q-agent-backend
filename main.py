@@ -46,7 +46,7 @@ def create_analysis_session(inputs: AnalysisInput):
 
     return {
         'message': 'Data stored successfully',
-        'session_id': session_id
+        'session_id': session_id,
     }
 
 
@@ -61,18 +61,18 @@ def generate_report(session_id: str, background_tasks: BackgroundTasks):
             return {
                 'message': 'Report processing',
                 'session_id': session_id,
-                'status': status
+                'status': status,
             }
         elif status == 'complete':
             return {
                 'message': 'Report completed',
                 'session_id': session_id,
-                'status': status
+                'status': status,
             }
 
     db['reports'][session_id] = {
         'status': 'processing',
-        'result': None
+        'result': None,
     }
 
     input_data = db['analysis_inputs'][session_id]
@@ -83,7 +83,7 @@ def generate_report(session_id: str, background_tasks: BackgroundTasks):
     return {
         'message': 'AI report generation has started. Please check the results shortly',
         'session_id': session_id,
-        'status': db['reports'][session_id]['status']
+        'status': db['reports'][session_id]['status'],
     }
 
 
