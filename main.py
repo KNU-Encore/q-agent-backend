@@ -1,6 +1,6 @@
 import json
 import uuid
-from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile
+from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File
 from pydantic import BaseModel, ValidationError
 
 app = FastAPI()
@@ -41,7 +41,7 @@ def root():
 
 
 @app.post('/analysis-sessions/upload')
-async def create_analysis_session_from_file(file: UploadFile):
+async def create_analysis_session_from_file(file: UploadFile=File(...)):
     if file.content_type != 'application/json':
         raise HTTPException(status_code=400, detail='Please upload a JSON file')
 
