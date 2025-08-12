@@ -1,6 +1,7 @@
+import json
 import uuid
-from fastapi import FastAPI, BackgroundTasks, HTTPException
-from pydantic import BaseModel
+from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile
+from pydantic import BaseModel, ValidationError
 
 app = FastAPI()
 
@@ -37,6 +38,31 @@ class AnalysisInput(BaseModel):
 @app.get('/')
 def root():
     return {'message': 'Connected'}
+
+
+@app.post('/analysis-sessions/upload')
+async def create_analysis_session_from_file(file: UploadFile):
+    if file.content_type != 'application/json':
+        raise HTTPException(status_code=400, detail='Please upload a JSON file')
+
+    contents = await file.read()
+    try:
+        data = json.loads(contents)
+    except json.JSONDecodeError:
+        raise HTTPException(status_code=400, detail='Invalid JSON format')
+
+    try:
+        inputs = AnalysisInput(**data)
+    except ValidationError as e:
+        raise HTTPException(status_code=422, detail=e.errors())
+
+    session_id = str(uuid.uuid4())
+    db['analysis_inputs'][session_id] = inputs.model_dump()
+
+    return {
+        'message': 'File uploaded and data stored successfully',
+        'session_id': session_id,
+    }
 
 
 @app.post('/analysis-sessions')
