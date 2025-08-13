@@ -4,6 +4,8 @@ from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File
 from pydantic import BaseModel, ValidationError
 from redis import asyncio as aioredis
 
+from services.ai_report_agent import run_ai_report_generation
+
 redis_client = aioredis.from_url('redis://localhost:6379/0', decode_responses=True)
 
 app = FastAPI()
