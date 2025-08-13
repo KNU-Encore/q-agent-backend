@@ -2,13 +2,11 @@ import json
 import uuid
 from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File
 from pydantic import BaseModel, ValidationError
+from redis import asyncio as aioredis
+
+redis_client = aioredis.from_url('redis://localhost:6379/0', decode_responses=True)
 
 app = FastAPI()
-
-db = {
-    'analysis_inputs': {},
-    'reports': {},
-}
 
 
 class QueryMetadata(BaseModel):
@@ -41,7 +39,7 @@ def root():
 
 
 @app.post('/analysis-sessions/upload')
-async def create_analysis_session_from_file(file: UploadFile=File(...)):
+async def create_analysis_session_from_file(file: UploadFile = File(...)):
     if file.content_type != 'application/json':
         raise HTTPException(status_code=400, detail='Please upload a JSON file')
 
@@ -57,7 +55,7 @@ async def create_analysis_session_from_file(file: UploadFile=File(...)):
         raise HTTPException(status_code=422, detail=e.errors())
 
     session_id = str(uuid.uuid4())
-    db['analysis_inputs'][session_id] = inputs.model_dump()
+    await redis_client.set(f'analysis_inputs:{session_id}', inputs.model_dump_json(), ex=3600)
 
     return {
         'message': 'File uploaded and data stored successfully',
@@ -66,9 +64,9 @@ async def create_analysis_session_from_file(file: UploadFile=File(...)):
 
 
 @app.post('/analysis-sessions')
-def create_analysis_session(inputs: AnalysisInput):
+async def create_analysis_session(inputs: AnalysisInput):
     session_id = str(uuid.uuid4())
-    db['analysis_inputs'][session_id] = inputs.model_dump()
+    await redis_client.set(f'analysis_inputs:{session_id}', inputs.model_dump_json(), ex=3600)
 
     return {
         'message': 'Data stored successfully',
@@ -77,46 +75,43 @@ def create_analysis_session(inputs: AnalysisInput):
 
 
 @app.post('/reports/{session_id}', status_code=202)
-def generate_report(session_id: str, background_tasks: BackgroundTasks):
-    if session_id not in db['analysis_inputs']:
+async def generate_report(session_id: str, background_tasks: BackgroundTasks):
+    input_key = f'analysis_inputs:{session_id}'
+    if not await redis_client.exists(input_key):
         raise HTTPException(status_code=404, detail='Session id not found')
 
-    if session_id in db['reports']:
-        status = db['reports'][session_id]['status']
-        if status == 'processing':
+    report_key = f'report:{session_id}'
+    report_json = await redis_client.get(report_key)
+    if report_json:
+        report_data = json.loads(report_json)
+        status = report_data.get('status')
+        if status in ['processing', 'complete']:
             return {
-                'message': 'Report processing',
-                'session_id': session_id,
-                'status': status,
-            }
-        elif status == 'complete':
-            return {
-                'message': 'Report completed',
+                'message': f'Report status: {status}',
                 'session_id': session_id,
                 'status': status,
             }
 
-    db['reports'][session_id] = {
+    initial_report_status = {
         'status': 'processing',
         'result': None,
     }
+    await redis_client.set(report_key, json.dumps(initial_report_status), ex=3600)
 
-    input_data = db['analysis_inputs'][session_id]
-
-    # AI 리포트 생성 코드 호출
-    # result = background_tasks.add_task(run_ai_report_geenration, session_id, input_data)
+    background_tasks.add_task(run_ai_report_generation, session_id)
 
     return {
         'message': 'AI report generation has started. Please check the results shortly',
         'session_id': session_id,
-        'status': db['reports'][session_id]['status'],
+        'status': 'processing',
     }
 
 
 @app.get('/reports/{session_id}')
-def get_report(session_id: str):
-    report = db['reports'].get(session_id)
-    if not report:
+async def get_report(session_id: str):
+    report_key = f'report:{session_id}'
+    report_json = await redis_client.get(report_key)
+    if not report_json:
         raise HTTPException(status_code=404, detail='Please start the generation first')
 
-    return report
+    return json.loads(report_json)
