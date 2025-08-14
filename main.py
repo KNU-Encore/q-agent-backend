@@ -1,10 +1,13 @@
+import io
 import json
 import uuid
 from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File
 from pydantic import BaseModel, ValidationError
+from starlette.responses import StreamingResponse
 from redis import asyncio as aioredis
 
 from services.ai_report_agent import run_ai_report_generation
+from services.pdf_generator import create_pdf_report
 
 redis_client = aioredis.from_url('redis://localhost:6379/0', decode_responses=True)
 
@@ -117,3 +120,22 @@ async def get_report(session_id: str):
         raise HTTPException(status_code=404, detail='Please start the generation first')
 
     return json.loads(report_json)
+
+@app.get('/reports/{session_id}/download')
+async def download_report(session_id: str):
+    report_key = f'report:{session_id}'
+    report_json = await redis_client.get(report_key)
+
+    if not report_json:
+        raise HTTPException(status_code=404, detail='Report not found. Please start the generation first')
+
+    report_data = json.loads(report_json).get('result')
+    pdf_bytes = create_pdf_report(report_data, session_id)
+
+    return StreamingResponse(
+        io.BytesIO(pdf_bytes),
+        media_type='application/pdf',
+        headers={
+            'Content-Disposition': f'attachment; filename=slow_query_report_{session_id}.pdf'
+        },
+    )
