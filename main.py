@@ -6,7 +6,9 @@ from pydantic import BaseModel, ValidationError
 from starlette.responses import StreamingResponse
 from redis import asyncio as aioredis
 
-from services.ai_report_agent import run_ai_report_generation
+from services.claude_report_agent import run_claude_report_generation
+from services.gemini_report_agent import run_gemini_report_generation
+from services.gpt_report_agent import run_gpt_report_generation
 from services.pdf_generator import create_pdf_report
 
 redis_client = aioredis.from_url('redis://localhost:6379/0', decode_responses=True)
@@ -132,13 +134,12 @@ async def generate_report(session_id: str, background_tasks: BackgroundTasks):
     }
     await redis_client.set(report_key, json.dumps(initial_report_status), ex=3600)
 
-    # background_tasks.add_task(run_ai_report_generation, session_id)
     if selected_model == 'gpt-4o-mini':
-        pass
+        background_tasks.add_task(run_gpt_report_generation, session_id)
     elif selected_model == 'gemini-2.5-flash':
-        pass
+        background_tasks.add_task(run_gemini_report_generation, session_id)
     elif selected_model == 'claude-sonnet-4-20250514':
-        pass
+        background_tasks.add_task(run_claude_report_generation, session_id)
     else:
         raise HTTPException(status_code=400, detail=f"Unsupported model: {selected_model}")
 
