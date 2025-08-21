@@ -25,12 +25,20 @@ def create_pdf_report(report_data, session_id):
         h2 { font-size: 20px; }
         h3 { font-size: 16px; }
         code {
-            background-color: #f4f4f4; padding: 2px 4px; border-radius: 4px;
-            font-family: monospace; color: #c7254e;
+            background-color: #f7f6f3;
+            color: #eb5757;
+            padding: 2px 5px;
+            border-radius: 4px;
+            font-family: monospace;
         }
         pre {
-            background-color: #2d2d2d; color: #f8f8f2; padding: 15px;
-            border-radius: 5px; white-space: pre-wrap; word-wrap: break-word;
+            background-color: #f7f6f3;
+            color: #333;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            border: 1px solid #e3e2e0;
         }
         table { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
         th, td { border: 1px solid #ddd; padding: 8px; text-align: left; }
