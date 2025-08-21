@@ -6,9 +6,7 @@ from pydantic import BaseModel, ValidationError
 from starlette.responses import StreamingResponse
 from redis import asyncio as aioredis
 
-from services.claude_report_agent import run_claude_report_generation
-from services.gemini_report_agent import run_gemini_report_generation
-from services.gpt_report_agent import run_gpt_report_generation
+from services.ai_report_agent import run_ai_report_generation
 from services.pdf_generator import create_pdf_report
 
 redis_client = aioredis.from_url('redis://localhost:6379/0', decode_responses=True)
@@ -38,9 +36,6 @@ class AnalysisInput(BaseModel):
     explain_analyze: ExplainAnalyze
     db_metadata: DBMetadata
     db_schema: DBSchema
-
-class ModelSelection(BaseModel):
-    model: str
 
 
 @app.get('/')
@@ -83,38 +78,12 @@ async def create_analysis_session(inputs: AnalysisInput):
         'session_id': session_id,
     }
 
-@app.post('/analysis-sessions/{session_id}/model')
-async def select_model_for_session(session_id: str, selection: ModelSelection):
-    input_key = f'analysis_inputs:{session_id}'
-
-    input_data_json = await redis_client.get(input_key)
-    if not input_data_json:
-        raise HTTPException(status_code=404, detail='Session id not found')
-
-    input_data = json.loads(input_data_json)
-    input_data['model'] = selection.model
-
-    await redis_client.set(input_key, json.dumps(input_data), ex=3600)
-
-    return {
-        'message': f'Model {selection.model} has been set for session {session_id}',
-        'session_id': session_id,
-        'selected_model': selection.model
-    }
-
 
 @app.post('/reports/{session_id}', status_code=202)
 async def generate_report(session_id: str, background_tasks: BackgroundTasks):
     input_key = f'analysis_inputs:{session_id}'
-
-    input_data_json = await redis_client.get(input_key)
-    if not input_data_json:
+    if not await redis_client.exists(input_key):
         raise HTTPException(status_code=404, detail='Session id not found')
-
-    input_data = json.loads(input_data_json)
-    selected_model = input_data.get('model')
-    if not selected_model:
-        raise HTTPException(status_code=400, detail='Model has not been selected for this session. Please complete Step 2.')
 
     report_key = f'report:{session_id}'
     report_json = await redis_client.get(report_key)
@@ -134,14 +103,7 @@ async def generate_report(session_id: str, background_tasks: BackgroundTasks):
     }
     await redis_client.set(report_key, json.dumps(initial_report_status), ex=3600)
 
-    if selected_model == 'gpt-4o-mini':
-        background_tasks.add_task(run_gpt_report_generation, session_id)
-    elif selected_model == 'gemini-2.5-flash':
-        background_tasks.add_task(run_gemini_report_generation, session_id)
-    elif selected_model == 'claude-sonnet-4-20250514':
-        background_tasks.add_task(run_claude_report_generation, session_id)
-    else:
-        raise HTTPException(status_code=400, detail=f"Unsupported model: {selected_model}")
+    background_tasks.add_task(run_ai_report_generation, session_id)
 
     return {
         'message': 'AI report generation has started. Please check the results shortly',
