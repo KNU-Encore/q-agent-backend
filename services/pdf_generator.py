@@ -3,11 +3,13 @@ from weasyprint import HTML
 
 
 def create_pdf_report(report_data, session_id):
+    summary_report_md = report_data.get('summary_report', '')
     performance_report_md = report_data.get('performance_report', '')
     query_rewrite_md = report_data.get('query_rewrite', '')
     metrics = report_data.get('metrics', {})
 
     extras = ["fenced-code-blocks", "tables"]
+    summary_report_html = markdown2.markdown(summary_report_md, extras=extras)
     performance_report_html = markdown2.markdown(performance_report_md, extras=extras)
     query_rewrite_html = markdown2.markdown(query_rewrite_md, extras=extras)
 
@@ -50,6 +52,9 @@ def create_pdf_report(report_data, session_id):
         </head>
         <body>
             <h1>Slow Query Analysis Report (Session ID: {session_id})</h1>
+            <h2>Summary</h2>
+            {summary_report_html}
+            <hr>
             <h2>Analysis Overview</h2>
             {performance_report_html}
             <hr>
